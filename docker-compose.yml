@@ -1,0 +1,161 @@
+version: '3'
+
+networks:
+  monitor-net:
+    driver: bridge
+
+volumes:
+    prometheus_data: {}
+    grafana_data: {}
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.43.0
+    container_name: prometheus
+    hostname: abc
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=360d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    expose:
+      - 9090
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    container_name: alertmanager
+    volumes:
+      - ./alertmanager:/etc/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+    expose:
+      - 9093
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.1
+    container_name: cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+    restart: unless-stopped
+    expose:
+      - 8080
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  nodeexporter:
+    image: prom/node-exporter:v1.5.0
+    container_name: nodeexporter
+    hostname: cba
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    expose:
+      - 9100
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  alertmanager-bot:
+    container_name: alertmanager-bot
+    command:
+    - --alertmanager.url=http://alertmanager:9093
+    - --log.level=info
+    - --store=bolt
+    - --bolt.path=/data/bot.db
+    environment:
+      TELEGRAM_ADMIN: "366377646"
+      TELEGRAM_TOKEN: 5230187661:AAH9i-gv_8tfXNi4uB1M4rBGK1-vGoVpGks
+    image: metalmatze/alertmanager-bot:0.4.3
+    networks:
+      - monitor-net
+    expose:
+    - 8080
+    restart: always
+    volumes:
+    - ./data:/data
+
+  grafana:
+    image: grafana/grafana:9.5.1
+    container_name: grafana
+    env_file:
+      - config
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+    restart: unless-stopped
+    expose:
+      - 3000
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  blackbox:
+    image: prom/blackbox-exporter:master
+    container_name: blackbox
+    volumes:
+      - ./blackbox:/etc/blackbox
+    command:
+      - '--config.file=/etc/blackbox/blackbox.yml'
+    expose:
+      - 9115
+    networks:
+      - monitor-net
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.6.4
+    container_name: caddy
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+      - "9090:9090"
+      - "9093:9093"
+      - "9115:9115"
+      - "8088:8088"
+    volumes:
+      - ./caddy:/etc/caddy
+    environment:
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-$2a$14$3nR5n31LzNIbKfh.3vj.Ouly1spOAeyQm6ieyVsXr1Tuk9pJOY8WG}
+    restart: unless-stopped
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
