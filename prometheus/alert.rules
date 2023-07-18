@@ -1,7 +1,7 @@
 groups:
 - name: targets
   rules:
-  - alert: наблюдаемый_сервис_лежит
+  - alert: Наблюдаемый сервис не отвечает
     expr: up == 0
     for: 30s
     labels:
@@ -12,17 +12,17 @@ groups:
 
 - name: linux_alerts
   rules:
-  - alert: Высокая нагрузка CPU_linux
+  - alert: Высокая нагрузка CPU
     expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80
     for: 5m
     labels:
       severity: critical
     annotations:
       summary: У хоста {{ $labels.instance }} высокая нагрузка на CPU
-      description: The CPU utilization on host {{ $labels.instance }} has exceeded 80% for 5 minutes.
-  - alert: Оперативная память занята
-    expr: (sum(node_memory_MemTotal_bytes) - sum(node_memory_MemFree_bytes + node_memory_Buffers_bytes + node_memory_Cached_bytes) ) / sum(node_memory_MemTotal_bytes) * 100 > 80
-    for: 30s
+      description: Использование CPU у хоста {{ $labels.instance }} превышает 80% в течении 5 минут.
+  - alert: Высокий уровень использования оперативки
+    expr: (sum(node_memory_MemTotal_bytes) - sum(node_memory_MemFree_bytes + node_memory_Buffers_bytes + node_memory_Cached_bytes) ) / sum(node_memory_MemTotal_bytes) * 100 > 90
+    for: 5m
     labels:
       severity: warning
     annotations:
@@ -34,39 +34,39 @@ groups:
     labels:
       severity: high
     annotations:
-      summary: "Диск переполнен у (виртуалки {{ $labels.instance }})"
+      summary: "Диск переполнен у хоста {{ $labels.instance }}"
       description: "Диск используется более, чем на 80%\n  Значение = {{ $value }}\n LABELS: {{ $labels }}"
 
 - name: windows_alerts  
   rules:
-  - alert: Высокая нагрузка CPU_windows
-    expr: 100 - (avg by (instance) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100) > 70
+  - alert: Высокая нагрузка CPU
+    expr: 100 - (avg by (instance) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100) > 80
     for: 5m
     labels:
       severity: critical
     annotations:
       summary: У хоста {{ $labels.instance }} высокая нагрузка на CPU
-      description: The CPU utilization on host {{ $labels.instance }} has exceeded 80% for 5 minutes.
+      description: Использование CPU у хоста {{ $labels.instance }} превышает 80% в течении 5 минут.
   - alert: Высокий уровень использования оперативки
-    expr: 100.0-100 * windows_os_physical_memory_free_bytes/windows_cs_physical_memory_bytes > 80
+    expr: 100.0-100 * windows_os_physical_memory_free_bytes/windows_cs_physical_memory_bytes > 90
     for: 5m
     labels:
       severity: critical
     annotations:
       summary: У хоста {{ $labels.instance }} высокий уровень использования оперативной памяти
-      description: The CPU utilization on host {{ $labels.instance }} has exceeded 80% for 5 minutes.
+      description:  У хоста {{ $labels.instance }} 5 минут занято более 90% оперативной памяти.
   - alert: Диск переполнен
-    expr: 100 - windows_logical_disk_free_bytes{volume='C:'}/windows_logical_disk_size_bytes * 100 > 90
+    expr: 100 - windows_logical_disk_free_bytes{volume='C:'}/windows_logical_disk_size_bytes * 100 > 80
     for: 10s
     labels:
       severity: high
     annotations:
       summary: "Диск переполнен у (виртуалки {{ $labels.instance }})"
-      description: "Диск С использует более, чем на 90%\n  Значение = {{ $value }}"
+      description: "Диск С использует более, чем на 80%\n  Значение = {{ $value }}"
 
 - name: black_box
   rules:
-  - alert: сервер_не_отвечает
+  - alert: URL не отвечает
     expr: probe_success == 0
     for: 5m
     labels:
