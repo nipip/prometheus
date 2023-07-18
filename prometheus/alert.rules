@@ -40,7 +40,7 @@ groups:
 - name: windows_alerts  
   rules:
   - alert: Высокая нагрузка CPU
-    expr: 100 - (avg by (instance) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100) > 80
+    expr: 100 - (avg by (instance) (rate(windows_cpu_time_total{mode="idle"}[2m])) * 100) > 80
     for: 5m
     labels:
       severity: critical
@@ -61,7 +61,7 @@ groups:
     labels:
       severity: high
     annotations:
-      summary: "Диск переполнен у (виртуалки {{ $labels.instance }})"
+      summary: "Диск переполнен у хоста {{ $labels.instance }}"
       description: "Диск С использует более, чем на 80%\n  Значение = {{ $value }}"
 
 - name: black_box
